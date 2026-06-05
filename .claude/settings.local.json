@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/ngera/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/3a58232d-d21e-4437-a919-7955de6212d2/56001b53-4813-46b9-b8a5-7ebddc069aa2/skills/web-artifacts-builder/pokedex/**)",
+      "Bash(pnpm run *)",
+      "Read(//c/Users/ngera/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/3a58232d-d21e-4437-a919-7955de6212d2/56001b53-4813-46b9-b8a5-7ebddc069aa2/skills/web-artifacts-builder/**)",
+      "Bash(bash scripts/bundle-artifact.sh pokedex)",
+      "Bash(bash ../scripts/bundle-artifact.sh)"
+    ]
+  }
+}

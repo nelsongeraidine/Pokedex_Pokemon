@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>POKÉDEX — Interface Retrô-Futurista</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700;900&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --red: #CC0000;
+  --red-dark: #990000;
+  --yellow: #FFD700;
+  --bg: #0d0d0d;
+  --surface: #141414;
+  --surface2: #1a1a1a;
+  --border: #2a2a2a;
+  --text: #e0e0e0;
+  --text-dim: #888;
+  --mono: 'Share Tech Mono', monospace;
+  --display: 'Orbitron', sans-serif;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); }
+body { overflow-x: hidden; }
+
+/* CRT Scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.055) 2px, rgba(0,0,0,0.055) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--red); border-radius: 3px; }
+
+/* Animations */
+@keyframes fadeUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+@keyframes flicker {
+  0%, 89%, 91%, 93%, 95%, 100% { opacity: 1; }
+  90%, 92%, 94% { opacity: 0.7; }
+}
+@keyframes evolutionAppear {
+  from { transform: scale(0.65) translateY(12px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes barGrow { from { width: 0 !important; } }
+
+.fade-up { animation: fadeUp 0.4s ease both; }
+.slide-in-right { animation: slideInRight 0.38s cubic-bezier(0.16,1,0.3,1) both; }
+.skeleton { animation: skeletonPulse 1.5s ease-in-out infinite; background: #1c1c1c; border-radius: 3px; }
+
+/* Grid */
+.pokemon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 12px;
+}
+
+/* Cards */
+.poke-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  width: 100%;
+  animation: fadeUp 0.35s ease both;
+}
+.poke-card:hover { transform: translateY(-4px); background: #1a1a1a; }
+.poke-card .crt-flicker {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(transparent 50%, rgba(0,0,0,0.04) 50%);
+  background-size: 100% 4px;
+  pointer-events: none; z-index: 2;
+  opacity: 0; transition: opacity 0.2s;
+  animation: flicker 4s linear infinite;
+}
+.poke-card:hover .crt-flicker { opacity: 1; }
+.poke-card .corner-accent {
+  position: absolute; top: 0; right: 0;
+  width: 0; height: 0; border-style: solid;
+  border-width: 0 26px 26px 0;
+}
+
+/* Type badge */
+.type-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-family: var(--display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+/* Buttons */
+.btn-outline-red {
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
+  padding: 9px 28px;
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+.btn-outline-red:hover { background: var(--red); color: #fff; }
+
+/* Detail Panel */
+.detail-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(5px);
+  z-index: 100;
+  cursor: pointer;
+}
+.detail-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(480px, 100vw);
+  background: #111;
+  z-index: 101;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tabs */
+.tab-btn {
+  flex: 1; padding: 9px 4px;
+  border: none; cursor: pointer;
+  font-family: var(--display);
+  font-size: 9px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+/* Stat bar */
+.stat-bar-wrap { display: flex; align-items: center; gap: 10px; width: 100%; }
+.stat-bar-track {
+  flex: 1; height: 6px; background: #222;
+  border-radius: 3px; overflow: hidden; border: 1px solid #333;
+}
+.stat-bar-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.75s cubic-bezier(0.4,0,0.2,1);
+  animation: barGrow 0.75s cubic-bezier(0.4,0,0.2,1) both;
+}
+
+/* Evolution */
+.evo-node { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.evo-sprite-wrap {
+  width: 70px; height: 70px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+
+/* Search dropdown */
+.search-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: #111; border: 1px solid #333; border-top: none;
+  z-index: 200; max-height: 260px; overflow-y: auto;
+}
+.search-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 7px 12px;
+  background: transparent; border: none; border-bottom: 1px solid #1e1e1e;
+  color: #ccc; cursor: pointer; font-family: var(--mono); font-size: 13px; text-align: left;
+  transition: background 0.15s;
+}
+.search-item:hover { background: #1e1e1e; }
+
+/* Type filter buttons */
+.type-filter-btn {
+  border-radius: 2px; padding: 4px 10px;
+  font-family: var(--display); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.18s;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .pokemon-grid { grid-template-columns: repeat(2, 1fr); }
+  .detail-panel { width: 100vw; }
+}
+@media (min-width: 601px) and (max-width: 900px) {
+  .pokemon-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Section title */
+.section-title {
+  font-family: var(--display); font-size: 10px; color: #666;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  margin-bottom: 12px; border-bottom: 1px solid #222; padding-bottom: 6px;
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-type="module">
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const TYPE_COLORS = {
+  fire:'#FF4500', water:'#1E90FF', grass:'#3CB371', electric:'#FFD700',
+  psychic:'#FF69B4', ice:'#00CED1', dragon:'#7B68EE', dark:'#4a4a4a',
+  fairy:'#FFB6C1', normal:'#A9A9A9', fighting:'#8B0000', flying:'#87CEEB',
+  poison:'#9400D3', ground:'#D2691E', rock:'#808080', bug:'#556B2F',
+  ghost:'#483D8B', steel:'#B0C4DE',
+};
+const TYPE_TEXT = {
+  fire:'#fff', water:'#fff', grass:'#fff', electric:'#000',
+  psychic:'#fff', ice:'#000', dragon:'#fff', dark:'#fff',
+  fairy:'#000', normal:'#000', fighting:'#fff', flying:'#000',
+  poison:'#fff', ground:'#fff', rock:'#fff', bug:'#fff',
+  ghost:'#fff', steel:'#000',
+};
+const STAT_LABELS = { hp:'HP', attack:'ATK', defense:'DEF', 'special-attack':'SP.ATK', 'special-defense':'SP.DEF', speed:'SPD' };
+const STAT_COLORS = { hp:'#FF5959', attack:'#F5AC78', defense:'#FAE078', 'special-attack':'#9DB7F5', 'special-defense':'#A7DB8D', speed:'#FA92B2' };
+const ALL_TYPES = ['fire','water','grass','electric','psychic','ice','dragon','dark','fairy','normal','fighting','flying','poison','ground','rock','bug','ghost','steel'];
+const BASE_URL = 'https://pokeapi.co/api/v2';
+const ART_URL = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork';
+const PAGE_SIZE = 20;
+const TOTAL = 1025;
+
+// ─── API + Cache ──────────────────────────────────────────────────────────────
+
+const cache = new Map();
+async function apiFetch(url) {
+  if (cache.has(url)) return cache.get(url);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = await r.json();
+  cache.set(url, d);
+  return d;
+}
+
+const api = {
+  list: (limit, offset) => apiFetch(`${BASE_URL}/pokemon?limit=${limit}&offset=${offset}`),
+  pokemon: (id) => apiFetch(`${BASE_URL}/pokemon/${id}`),
+  species: (id) => apiFetch(`${BASE_URL}/pokemon-species/${id}`),
+  evolution: (id) => apiFetch(`${BASE_URL}/evolution-chain/${id}`),
+  ability: (name) => apiFetch(`${BASE_URL}/ability/${name}`),
+  type: (name) => apiFetch(`${BASE_URL}/type/${name}`),
+  search: async (q) => {
+    q = q.toLowerCase().trim();
+    try {
+      const p = await api.pokemon(q);
+      return [{ name: p.name, id: p.id }];
+    } catch {
+      const all = await apiFetch(`${BASE_URL}/pokemon?limit=1025&offset=0`);
+      return all.results
+        .filter(p => p.name.includes(q))
+        .slice(0, 10)
+        .map(p => ({ name: p.name, id: +p.url.split('/').filter(Boolean).pop() }));
+    }
+  },
+};
+
+function extractId(url) { return +url.split('/').filter(Boolean).pop(); }
+
+// ─── Hooks ────────────────────────────────────────────────────────────────────
+
+function useDebounce(val, ms) {
+  const [v, setV] = useState(val);
+  useEffect(() => { const t = setTimeout(() => setV(val), ms); return () => clearTimeout(t); }, [val, ms]);
+  return v;
+}
+
+// ─── TypeBadge ────────────────────────────────────────────────────────────────
+
+function TypeBadge({ type, size = 'md' }) {
+  const bg = TYPE_COLORS[type] ?? '#A9A9A9';
+  const color = TYPE_TEXT[type] ?? '#000';
+  return (
+    <span className="type-badge" style={{
+      background: bg, color,
+      padding: size === 'sm' ? '2px 7px' : '3px 10px',
+      fontSize: size === 'sm' ? '9px' : '10px',
+    }}>{type}</span>
+  );
+}
+
+// ─── StatBar ──────────────────────────────────────────────────────────────────
+
+function StatBar({ name, value, delay = 0 }) {
+  const [go, setGo] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setGo(true), delay + 80); return () => clearTimeout(t); }, [delay]);
+  const pct = Math.min(100, (value / 255) * 100);
+  const color = STAT_COLORS[name] ?? '#FFD700';
+  return (
+    <div className="stat-bar-wrap">
+      <span style={{ width: 64, fontSize: 10, fontFamily: 'var(--display)', color: '#777', textTransform: 'uppercase', textAlign: 'right', flexShrink: 0 }}>
+        {STAT_LABELS[name] ?? name}
+      </span>
+      <span style={{ width: 30, fontSize: 12, color: '#bbb', textAlign: 'right', flexShrink: 0 }}>{value}</span>
+      <div className="stat-bar-track">
+        <div className="stat-bar-fill" style={{
+          width: go ? `${pct}%` : '0%',
+          background: `linear-gradient(90deg, ${color}88, ${color})`,
+          boxShadow: go ? `0 0 6px ${color}70` : 'none',
+          transitionDelay: `${delay}ms`,
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Evolution Chain ──────────────────────────────────────────────────────────
+
+function parseTrigger(d) {
+  if (!d) return '';
+  if (d.min_level) return `Lv. ${d.min_level}`;
+  if (d.item) return d.item.name.replace(/-/g, ' ');
+  if (d.trigger?.name === 'trade') return 'Trade';
+  if (d.min_happiness) return 'Felicidade';
+  if (d.known_move) return d.known_move.name.replace(/-/g, ' ');
+  if (d.location) return d.location.name.replace(/-/g, ' ');
+  if (d.time_of_day) return d.time_of_day;
+  return d.trigger?.name?.replace(/-/g, ' ') ?? '';
+}
+
+function flattenChain(link) {
+  const id = extractId(link.species.url);
+  const trigger = parseTrigger(link.evolution_details[0]);
+  const node = { id, name: link.species.name, trigger };
+  if (link.evolves_to.length === 0) return [[node]];
+  if (link.evolves_to.length === 1) {
+    return [[node], ...flattenChain(link.evolves_to[0])];
+  }
+  const branches = link.evolves_to.map(e => ({
+    id: extractId(e.species.url),
+    name: e.species.name,
+    trigger: parseTrigger(e.evolution_details[0]),
+  }));
+  return [[node], branches];
+}
+
+function EvoNode({ node, isActive, onClick, delay }) {
+  return (
+    <button onClick={onClick} aria-label={`Ver ${node.name}`} style={{ all: 'unset', cursor: 'pointer' }}>
+      <div className="evo-node" style={{ animation: `evolutionAppear 0.5s ease ${delay}ms both` }}>
+        <div className="evo-sprite-wrap" style={{
+          border: isActive ? '2px solid #FFD700' : '1px solid #333',
+          background: isActive ? '#1a1800' : '#141414',
+          boxShadow: isActive ? '0 0 14px #FFD70055' : 'none',
+        }}>
+          <img
+            src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${node.id}.png`}
+            alt={node.name} width={52} height={52} style={{ imageRendering: 'pixelated' }}
+            onError={e => e.target.style.display = 'none'}
+          />
+        </div>
+        <span style={{ fontFamily: 'var(--display)', fontSize: 9, textTransform: 'capitalize', color: isActive ? '#FFD700' : '#aaa', textAlign: 'center', maxWidth: 70, lineHeight: 1.2 }}>
+          {node.name}
+        </span>
+        {node.trigger && (
+          <span style={{ fontSize: 9, color: '#666', textAlign: 'center', maxWidth: 70, textTransform: 'capitalize' }}>
+            {node.trigger}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function EvolutionChainView({ pokemonId, onSelect }) {
+  const [stages, setStages] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    setLoading(true); setErr(false); setStages(null);
+    (async () => {
+      try {
+        const spec = await api.species(pokemonId);
+        const chainId = extractId(spec.evolution_chain.url);
+        const chain = await api.evolution(chainId);
+        setStages(flattenChain(chain.chain));
+      } catch { setErr(true); }
+      finally { setLoading(false); }
+    })();
+  }, [pokemonId]);
+
+  if (loading) return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '16px 0' }}>
+      {[0,1,2].map(i => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="skeleton" style={{ width: 70, height: 70, borderRadius: '50%' }} />
+        {i < 2 && <div className="skeleton" style={{ width: 24, height: 10 }} />}
+      </div>)}
+    </div>
+  );
+  if (err) return <p style={{ color: '#888', fontSize: 12 }}>Cadeia de evolução indisponível.</p>;
+  if (!stages || stages.length <= 1) return <p style={{ color: '#888', fontSize: 12 }}>Este Pokémon não evolui.</p>;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', padding: '8px 0 16px', flexWrap: 'nowrap' }}>
+      {stages.map((col, ci) => (
+        <div key={ci} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          {ci > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0 6px', animation: `evolutionAppear 0.5s ease ${ci * 150}ms both` }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12h14M14 7l5 5-5 5" stroke="#FFD700" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+            {(Array.isArray(col) ? col : [col]).map((node, ni) => (
+              <EvoNode
+                key={node.id}
+                node={node}
+                isActive={node.id === pokemonId}
+                onClick={() => onSelect(node.id)}
+                delay={ci * 150 + ni * 80}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Detail Panel ─────────────────────────────────────────────────────────────
+
+const TABS = ['INFO', 'STATS', 'SKILLS', 'EVOLUÇÃO'];
+
+function DetailPanel({ pokemonId, onClose, onSelect }) {
+  const [poke, setPoke] = useState(null);
+  const [spec, setSpec] = useState(null);
+  const [abilityDetails, setAbilityDetails] = useState({});
+  const [tab, setTab] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(false);
+  const closeRef = useRef(null);
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    if (pokemonId === null) return;
+    setLoading(true); setErr(false); setPoke(null); setSpec(null); setAbilityDetails({}); setTab(0);
+    (async () => {
+      try {
+        const [p, s] = await Promise.all([api.pokemon(pokemonId), api.species(pokemonId)]);
+        setPoke(p); setSpec(s);
+      } catch { setErr(true); }
+      finally { setLoading(false); }
+    })();
+  }, [pokemonId]);
+
+  useEffect(() => {
+    if (!poke || tab !== 2) return;
+    (async () => {
+      const res = {};
+      await Promise.all(poke.abilities.map(async a => {
+        try { res[a.ability.name] = await api.ability(a.ability.name); } catch {}
+      }));
+      setAbilityDetails(res);
+    })();
+  }, [poke, tab]);
+
+  useEffect(() => {
+    if (pokemonId === null) return;
+    setTimeout(() => closeRef.current?.focus(), 50);
+    const handler = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [pokemonId, onClose]);
+
+  if (pokemonId === null) return null;
+
+  const primaryType = poke?.types[0]?.type.name ?? 'normal';
+  const glow = TYPE_COLORS[primaryType] ?? '#CC0000';
+  const artUrl = poke ? `${ART_URL}/${poke.id}.png` : '';
+  const flavor = spec?.flavor_text_entries.find(e => e.language.name === 'en')?.flavor_text.replace(/\f/g,' ') ?? '';
+  const genus = spec?.genera.find(g => g.language.name === 'en')?.genus ?? '';
+  const gen = spec?.generation.name.replace('generation-', 'Gen ').toUpperCase() ?? '';
+
+  return (
+    <>
+      <div className="detail-backdrop" onClick={onClose} aria-hidden="true" />
+      <div ref={panelRef} className="detail-panel slide-in-right" role="dialog" aria-modal="true" aria-label={poke ? `Detalhes de ${poke.name}` : 'Carregando'} style={{ borderLeft: `2px solid ${glow}55` }}>
+        {/* Top bar */}
+        <div style={{ background: '#0d0d0d', borderBottom: '1px solid #222', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10, flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--display)', fontSize: 10, color: glow, letterSpacing: '0.15em' }}>◀ POKÉDEX DATA</span>
+          <button ref={closeRef} onClick={onClose} aria-label="Fechar" style={{ background: 'none', border: '1px solid #444', color: '#888', cursor: 'pointer', padding: '3px 10px', fontSize: 12, fontFamily: 'var(--mono)', borderRadius: 2, transition: 'all 0.2s' }}
+            onMouseEnter={e => { e.target.style.borderColor = '#CC0000'; e.target.style.color = '#CC0000'; }}
+            onMouseLeave={e => { e.target.style.borderColor = '#444'; e.target.style.color = '#888'; }}>
+            [ESC] ✕
+          </button>
+        </div>
+
+        {/* Loading */}
+        {loading && (
+          <div style={{ padding: '24px 20px' }}>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+              <div className="skeleton" style={{ width: 140, height: 140, borderRadius: 4, flexShrink: 0 }} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[60, '80%', '50%', 60].map((w, i) => <div key={i} className="skeleton" style={{ width: w, height: i === 1 ? 26 : 12 }} />)}
+              </div>
+            </div>
+            {[0,1,2].map(i => <div key={i} className="skeleton" style={{ width: '100%', height: 12, marginBottom: 10 }} />)}
+          </div>
+        )}
+
+        {/* Error */}
+        {err && (
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <p style={{ color: '#CC0000', marginBottom: 12, fontFamily: 'var(--display)', fontSize: 12 }}>ERRO AO CARREGAR</p>
+            <button onClick={() => onSelect(pokemonId)} style={{ background: '#CC0000', color: '#fff', border: 'none', padding: '8px 16px', cursor: 'pointer', fontFamily: 'var(--mono)', borderRadius: 2 }}>Tentar novamente</button>
+          </div>
+        )}
+
+        {/* Content */}
+        {poke && (
+          <>
+            {/* Hero */}
+            <div style={{ background: `linear-gradient(135deg, #0d0d0d 0%, ${glow}12 100%)`, padding: '22px 20px 0', borderBottom: '1px solid #222' }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                {/* Art */}
+                <div style={{ width: 140, height: 140, flexShrink: 0, background: `radial-gradient(circle, ${glow}18 0%, transparent 70%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src={artUrl} alt={poke.name} style={{ width: 130, height: 130, objectFit: 'contain', filter: `drop-shadow(0 0 18px ${glow}70)`, animation: 'fadeUp 0.5s ease both' }} onError={e => e.target.src = ''} />
+                </div>
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--display)', fontSize: 10, color: glow, letterSpacing: '0.15em', marginBottom: 4 }}>
+                    #{String(poke.id).padStart(3,'0')} · {gen}
+                  </div>
+                  <h2 style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 900, textTransform: 'capitalize', color: '#fff', lineHeight: 1.1, marginBottom: 4, textShadow: `0 0 20px ${glow}55`, wordBreak: 'break-word' }}>
+                    {poke.name}
+                  </h2>
+                  {genus && <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>{genus}</div>}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {poke.types.map(t => <TypeBadge key={t.type.name} type={t.type.name} />)}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {[['Altura', `${(poke.height/10).toFixed(1)} m`], ['Peso', `${(poke.weight/10).toFixed(1)} kg`], ['Exp. Base', poke.base_experience ?? '—']].map(([l, v]) => (
+                      <div key={l}>
+                        <div style={{ fontSize: 9, color: '#666', textTransform: 'uppercase', fontFamily: 'var(--display)', letterSpacing: '0.07em' }}>{l}</div>
+                        <div style={{ fontSize: 13, color: '#ccc' }}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {flavor && (
+                <p style={{ fontSize: 11, color: '#888', lineHeight: 1.65, padding: '12px 0 14px', borderTop: '1px solid #222', marginTop: 14, fontStyle: 'italic' }}>
+                  {flavor}
+                </p>
+              )}
+              {/* Tabs */}
+              <div style={{ display: 'flex' }}>
+                {TABS.map((t, i) => (
+                  <button key={t} onClick={() => setTab(i)} className="tab-btn" style={{
+                    background: tab === i ? glow : 'transparent',
+                    color: tab === i ? '#000' : '#666',
+                    fontWeight: tab === i ? 700 : 400,
+                    borderBottom: tab === i ? 'none' : '1px solid #333',
+                    border: tab !== i ? '1px solid transparent' : 'none',
+                    borderBottom: tab !== i ? '1px solid #333' : 'none',
+                  }}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tab content */}
+            <div style={{ padding: '20px', flex: 1 }}>
+              {/* INFO */}
+              {tab === 0 && (
+                <div className="fade-up">
+                  <p className="section-title">Habilidades</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+                    {poke.abilities.map(a => (
+                      <div key={a.ability.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#161616', border: '1px solid #2a2a2a', borderRadius: 2 }}>
+                        <span style={{ textTransform: 'capitalize', fontSize: 13, flex: 1 }}>{a.ability.name.replace(/-/g,' ')}</span>
+                        {a.is_hidden && <span style={{ fontSize: 9, background: '#2a2a2a', color: '#777', padding: '2px 6px', borderRadius: 2, fontFamily: 'var(--display)' }}>OCULTA</span>}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="section-title">Dados</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {[['Altura', `${(poke.height/10).toFixed(1)} m`], ['Peso', `${(poke.weight/10).toFixed(1)} kg`], ['Exp. Base', poke.base_experience ?? '—'], ['Geração', gen]].map(([l,v]) => (
+                      <div key={l} style={{ background: '#161616', border: '1px solid #222', padding: '10px 12px', borderRadius: 2 }}>
+                        <div style={{ fontSize: 9, color: '#666', fontFamily: 'var(--display)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{l}</div>
+                        <div style={{ fontSize: 14, color: '#ccc' }}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STATS */}
+              {tab === 1 && (
+                <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <p className="section-title">Atributos Base</p>
+                  {poke.stats.map((s, i) => <StatBar key={s.stat.name} name={s.stat.name} value={s.base_stat} delay={i * 80} />)}
+                  <div style={{ marginTop: 12, padding: '10px 14px', background: '#161616', border: '1px solid #2a2a2a', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: '#888', fontFamily: 'var(--display)' }}>TOTAL BASE</span>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: glow, fontFamily: 'var(--display)' }}>{poke.stats.reduce((s, st) => s + st.base_stat, 0)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* SKILLS */}
+              {tab === 2 && (
+                <div className="fade-up">
+                  <p className="section-title">Habilidades Detalhadas</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {poke.abilities.map(a => {
+                      const detail = abilityDetails[a.ability.name];
+                      const eff = detail?.effect_entries.find(e => e.language.name === 'en');
+                      return (
+                        <div key={a.ability.name} style={{ background: '#161616', border: '1px solid #2a2a2a', borderRadius: 2, padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                            <span style={{ textTransform: 'capitalize', fontFamily: 'var(--display)', fontSize: 12, color: '#ddd' }}>{a.ability.name.replace(/-/g,' ')}</span>
+                            {a.is_hidden && <span style={{ fontSize: 9, background: '#2a2a2a', color: '#777', padding: '2px 6px', borderRadius: 2, fontFamily: 'var(--display)' }}>OCULTA</span>}
+                          </div>
+                          {eff
+                            ? <p style={{ fontSize: 11, color: '#888', lineHeight: 1.65 }}>{eff.short_effect}</p>
+                            : <p style={{ fontSize: 11, color: '#555' }}>Carregando descrição...</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* EVOLUTION */}
+              {tab === 3 && (
+                <div className="fade-up">
+                  <p className="section-title">Cadeia de Evolução</p>
+                  <EvolutionChainView pokemonId={poke.id} onSelect={id => onSelect(id)} />
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── Pokemon Card ─────────────────────────────────────────────────────────────
+
+function PokemonCard({ pokemon, onClick, idx }) {
+  const [hov, setHov] = useState(false);
+  const [imgErr, setImgErr] = useState(false);
+  const type = pokemon.types[0]?.type.name ?? 'normal';
+  const glow = TYPE_COLORS[type] ?? '#A9A9A9';
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      aria-label={`${pokemon.name} #${String(pokemon.id).padStart(3,'0')}`}
+      className="poke-card"
+      style={{
+        borderColor: hov ? `${glow}88` : '#2a2a2a',
+        boxShadow: hov ? `0 8px 24px ${glow}40, 0 0 10px ${glow}25` : 'none',
+        animationDelay: `${(idx % PAGE_SIZE) * 35}ms`,
+      }}
+    >
+      {/* CRT overlay */}
+      <div className="crt-flicker" />
+      {/* Corner */}
+      <div className="corner-accent" style={{ borderColor: `transparent ${glow}55 transparent transparent` }} />
+      {/* Number */}
+      <div style={{ fontSize: 10, color: '#666', fontFamily: 'var(--display)', marginBottom: 8, letterSpacing: '0.1em' }}>
+        #{String(pokemon.id).padStart(3,'0')}
+      </div>
+      {/* Art */}
+      <div style={{ width: '100%', aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+        {!imgErr
+          ? <img src={`${ART_URL}/${pokemon.id}.png`} alt={pokemon.name} loading="lazy" onError={() => setImgErr(true)}
+              style={{ width: '85%', height: '85%', objectFit: 'contain', filter: hov ? `drop-shadow(0 0 12px ${glow}88)` : 'none', transition: 'filter 0.25s' }} />
+          : <div style={{ width: '80%', height: '80%', background: '#1e1e1e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>?</div>
+        }
+      </div>
+      {/* Name */}
+      <div style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, textTransform: 'capitalize', color: hov ? '#fff' : '#ccc', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color 0.2s' }}>
+        {pokemon.name}
+      </div>
+      {/* Types */}
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {pokemon.types.map(t => <TypeBadge key={t.type.name} type={t.type.name} size="sm" />)}
+      </div>
+    </button>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <div style={{ background: '#141414', border: '1px solid #222', borderRadius: 3, padding: 14 }}>
+      <div className="skeleton" style={{ width: 40, height: 10, marginBottom: 8 }} />
+      <div className="skeleton" style={{ width: '100%', aspectRatio: '1', marginBottom: 10 }} />
+      <div className="skeleton" style={{ width: '70%', height: 13, marginBottom: 8 }} />
+      <div className="skeleton" style={{ width: 50, height: 17 }} />
+    </div>
+  );
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [items, setItems] = useState([]);
+  const [pokeMap, setPokeMap] = useState(new Map());
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [initLoading, setInitLoading] = useState(true);
+  const [typeItems, setTypeItems] = useState([]);
+  const [loadingType, setLoadingType] = useState(false);
+  const [selectedType, setSelectedType] = useState(null);
+  const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSug, setShowSug] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+  const [error, setError] = useState(false);
+  const dQuery = useDebounce(query, 300);
+
+  const mergePoke = useCallback((list) => {
+    setPoke => setPokeMap(prev => {
+      const next = new Map(prev);
+      list.forEach(p => next.set(p.id, p));
+      return next;
+    });
+  }, []);
+
+  const loadBatch = useCallback(async (offset, initial = false) => {
+    if (initial) setInitLoading(true);
+    else setLoadingMore(true);
+    setError(false);
+    try {
+      const res = await api.list(PAGE_SIZE, offset);
+      const batch = res.results.map(r => ({ name: r.name, id: +r.url.split('/').filter(Boolean).pop() }));
+      setItems(prev => initial ? batch : [...prev, ...batch]);
+      const fetched = await Promise.allSettled(batch.map(i => api.pokemon(i.id)));
+      setPokeMap(prev => {
+        const next = new Map(prev);
+        fetched.forEach((r, idx) => { if (r.status === 'fulfilled') next.set(batch[idx].id, r.value); });
+        return next;
+      });
+      setLoadedCount(offset + PAGE_SIZE);
+    } catch { setError(true); }
+    finally { setInitLoading(false); setLoadingMore(false); }
+  }, []);
+
+  useEffect(() => { loadBatch(0, true); }, []);
+
+  useEffect(() => {
+    if (!dQuery.trim()) { setSuggestions([]); setShowSug(false); return; }
+    (async () => {
+      try {
+        const r = await api.search(dQuery);
+        setSuggestions(r.slice(0, 8));
+        setShowSug(true);
+        const toFetch = r.filter(i => !pokeMap.has(i.id));
+        const fetched = await Promise.allSettled(toFetch.map(i => api.pokemon(i.id)));
+        setPokeMap(prev => {
+          const next = new Map(prev);
+          fetched.forEach((r, idx) => { if (r.status === 'fulfilled') next.set(toFetch[idx].id, r.value); });
+          return next;
+        });
+      } catch {}
+    })();
+  }, [dQuery]);
+
+  useEffect(() => {
+    if (!selectedType) { setTypeItems([]); return; }
+    setLoadingType(true);
+    api.type(selectedType)
+      .then(async data => {
+        const filtered = data.pokemon
+          .map(p => ({ name: p.pokemon.name, id: +p.pokemon.url.split('/').filter(Boolean).pop() }))
+          .filter(p => p.id > 0 && p.id <= TOTAL)
+          .sort((a, b) => a.id - b.id);
+        setTypeItems(filtered);
+        const toFetch = filtered.filter(i => !pokeMap.has(i.id)).slice(0, 60);
+        const fetched = await Promise.allSettled(toFetch.map(i => api.pokemon(i.id)));
+        setPokeMap(prev => {
+          const next = new Map(prev);
+          fetched.forEach((r, idx) => { if (r.status === 'fulfilled') next.set(toFetch[idx].id, r.value); });
+          return next;
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoadingType(false));
+  }, [selectedType]);
+
+  const displayItems = useMemo(() => {
+    if (selectedType) return typeItems;
+    if (query.trim()) return suggestions;
+    return items;
+  }, [selectedType, typeItems, query, suggestions, items]);
+
+  const displayed = useMemo(() =>
+    displayItems.map(i => pokeMap.get(i.id)).filter(Boolean),
+    [displayItems, pokeMap]
+  );
+
+  const canLoadMore = !selectedType && !query.trim() && loadedCount < TOTAL && !loadingMore && !initLoading;
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0d0d0d' }}>
+      {/* Header */}
+      <header style={{ background: '#CC0000', borderBottom: '3px solid #880000', padding: '0 20px', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 4px 24px rgba(204,0,0,0.5)' }}>
+        <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16, height: 56 }}>
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <div style={{ width: 32, height: 32, border: '3px solid #fff', borderRadius: '50%', background: 'linear-gradient(180deg,#fff 50%,#CC0000 50%)', boxShadow: '0 0 0 2px #CC0000,0 0 0 4px #fff', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'var(--display)', fontWeight: 900, fontSize: 18, color: '#fff', letterSpacing: '0.05em', textShadow: '0 2px 6px rgba(0,0,0,0.3)' }}>POKÉDEX</span>
+          </div>
+          {/* Search */}
+          <div style={{ flex: 1, position: 'relative', maxWidth: 480 }}>
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#bbb', fontSize: 17, pointerEvents: 'none' }}>⌕</span>
+            <input
+              type="text" value={query}
+              onChange={e => setQuery(e.target.value)}
+              onFocus={() => suggestions.length > 0 && setShowSug(true)}
+              onBlur={() => setTimeout(() => setShowSug(false), 160)}
+              placeholder="Nome ou #número..."
+              aria-label="Buscar Pokémon"
+              style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', padding: '7px 12px 7px 33px', fontSize: 13, fontFamily: 'var(--mono)', outline: 'none', borderRadius: 2 }}
+            />
+            {showSug && suggestions.length > 0 && (
+              <div className="search-dropdown">
+                {suggestions.map(s => (
+                  <button key={s.id} className="search-item" onMouseDown={() => { setSelectedId(s.id); setQuery(''); setShowSug(false); }}>
+                    <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${s.id}.png`} alt="" width={26} height={26} style={{ imageRendering: 'pixelated' }} />
+                    <span style={{ color: '#666', fontSize: 11, width: 36 }}>#{String(s.id).padStart(3,'0')}</span>
+                    <span style={{ textTransform: 'capitalize' }}>{s.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <span style={{ fontFamily: 'var(--display)', fontSize: 10, color: 'rgba(255,255,255,0.55)', flexShrink: 0 }}>#{TOTAL}</span>
+        </div>
+      </header>
+
+      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '14px 16px 40px' }}>
+        {/* Type filter */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px 0', marginBottom: 12, borderBottom: '1px solid #1a1a1a' }}>
+          <button className="type-filter-btn" onClick={() => { setSelectedType(null); setQuery(''); }}
+            style={{ background: !selectedType ? '#CC0000' : '#161616', border: `1px solid ${!selectedType ? '#CC0000' : '#2a2a2a'}`, color: !selectedType ? '#fff' : '#888' }}>
+            TODOS
+          </button>
+          {ALL_TYPES.map(t => (
+            <button key={t} className="type-filter-btn"
+              onClick={() => { setSelectedType(selectedType === t ? null : t); setQuery(''); }}
+              style={{ background: selectedType === t ? TYPE_COLORS[t] : 'transparent', border: `1px solid ${selectedType === t ? TYPE_COLORS[t] : '#2a2a2a'}`, color: selectedType === t ? (TYPE_TEXT[t] ?? '#fff') : '#666' }}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Status line */}
+        <div style={{ fontSize: 11, color: '#555', marginBottom: 14, fontFamily: 'var(--mono)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: '#CC0000' }}>▶</span>
+          {selectedType ? `Tipo: ${selectedType} — ${typeItems.length} Pokémon`
+            : query ? `"${query}" — ${suggestions.length} resultado(s)`
+            : `${displayed.length} / ${TOTAL} Pokémon`}
+          {(loadingMore || loadingType) && <span style={{ color: '#FFD700' }}>· carregando...</span>}
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div style={{ textAlign: 'center', padding: 40, border: '1px solid #CC0000', borderRadius: 3, marginBottom: 24, background: '#160000' }}>
+            <p style={{ color: '#CC0000', marginBottom: 8, fontFamily: 'var(--display)', fontSize: 12 }}>ERRO DE CONEXÃO</p>
+            <p style={{ color: '#888', fontSize: 12, marginBottom: 16 }}>Não foi possível conectar à PokéAPI.</p>
+            <button className="btn-outline-red" onClick={() => loadBatch(0, true)}>TENTAR NOVAMENTE</button>
+          </div>
+        )}
+
+        {/* Grid */}
+        <div className="pokemon-grid">
+          {(initLoading || loadingType)
+            ? Array.from({ length: PAGE_SIZE }).map((_, i) => <CardSkeleton key={i} />)
+            : displayed.map((p, i) => (
+                <PokemonCard key={p.id} pokemon={p} idx={i} onClick={() => setSelectedId(p.id)} />
+              ))
+          }
+        </div>
+
+        {/* Empty */}
+        {!initLoading && !loadingType && displayed.length === 0 && !error && (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#555' }}>
+            <div style={{ fontSize: 44, marginBottom: 14 }}>?</div>
+            <p style={{ fontFamily: 'var(--display)', fontSize: 12, color: '#555' }}>Nenhum Pokémon encontrado</p>
+          </div>
+        )}
+
+        {/* Load more */}
+        {canLoadMore && (
+          <div style={{ textAlign: 'center', marginTop: 28 }}>
+            <button className="btn-outline-red" onClick={() => loadBatch(loadedCount)} disabled={loadingMore}>
+              {loadingMore ? '⟳ Carregando...' : `▼ Carregar Mais (${loadedCount}/${TOTAL})`}
+            </button>
+          </div>
+        )}
+      </main>
+
+      <DetailPanel pokemonId={selectedId} onClose={() => setSelectedId(null)} onSelect={id => setSelectedId(id)} />
+
+      <footer style={{ borderTop: '1px solid #1a1a1a', padding: '12px 20px', textAlign: 'center', fontSize: 10, color: '#3a3a3a', fontFamily: 'var(--mono)' }}>
+        POKÉDEX v2.0 · Dados: PokéAPI · Arte: The Pokémon Company
+      </footer>
+    </div>
+  );
+}
+
+// ─── Mount ────────────────────────────────────────────────────────────────────
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(React.StrictMode, null, React.createElement(App)));
+</script>
+</body>
+</html>
